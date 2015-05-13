@@ -1,0 +1,139 @@
+---
+title: "Practical Machine Learning Course Project"
+output: html_document
+---
+
+### Background
+
+  
+  Wearable devices such as *Jawbone Up, Nike FuelBand, and Fitbit* allow to collect a large amound of data
+  about personal activity. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks.
+   
+   In this project, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants and build a prediction model. The participants were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).  
+  
+  The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. They have been very generous in allowing their data to be used for this kind of assignment. 
+
+### Executive Summary
+  
+    
+  There are two datasets downloaded from the source. The first dataset is used to build a model to predict the manner in which 6 participants did the exercise. The second dataset is used to validate the model prediction. The result of the model prediction is submitted as part of this course project for automatic evaluation. The model is implemented with Breiman's random forest algorithm. Such algorithm is less sensitive to data preparation but often lead to overfitting. To prevent it a cross-validation technique is used. The validation of the model shows a very high prediction accuracy 0.9988. 
+
+
+### Data
+
+The training data for this project are available here: 
+  
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+  
+The test data are available here: 
+  
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+  
+### Model
+
+```{r, cache = TRUE}
+# load required libraries
+library(caret)
+library(doMC)
+registerDoMC(cores = 8)
+
+train_URL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+test_URL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+if (!file.exists("pml-training.csv")){
+  download.file(train_URL, "pml-training.csv", method = "curl")
+}
+if (!file.exists("pml-testing.csv")){
+  download.file(train_URL, "pml-testing.csv", method = "curl")
+}
+# list of incorrect values
+rem.strings <- c("", "NA")
+# re-read with na.strings
+data <- read.table("pml-training.csv", header = TRUE, sep = ",", na.strings = rem.strings)
+test.cases <- read.table("pml-testing.csv", header = TRUE, sep = ",", na.strings = rem.strings)
+```
+  The dataset has 19622 observations with 160 features
+  
+```{r}
+dim(data)
+```
+  Summary of the data, not showed for brevity, shows a lot of features with missing data. Such feature should be removed. Imputing the missing data does not make sense in this case.
+  
+```{r, cache = TRUE}
+# function to get a ratio of NA's
+na.ratio <- function(x){
+  total <- length(x)
+  na.count <- sum(is.na(x))
+  return((total - na.count) / total)
+}
+ratios <- apply(data, 2, na.ratio)
+# dropping the columns with a large number of NAs
+data <- data[ ,ratios > 0.9]
+```
+  Futher data analysis shows that the first 7 features are related to indexing and time should be excluded from the dataset. It is a recommended practice to excluded such features from the model.
+  
+```{r, cache = TRUE}
+# after reviewing the data the first 7 column are removed
+data <- data[ , -(1:7)]
+dim(data)
+```
+  The prepared dataset has a significantly less features: 53.
+  
+  The next step is to split the dataset into training and testing subsets.
+```{r, cache = TRUE}
+# partition data, 75% for training, 25% for testing
+inTrain = createDataPartition(data$classe, p = 3/4, list = FALSE)
+training = data[inTrain, ]
+testing = data[-inTrain, ]
+
+# use cross validation to prevent over-fitting
+control <- trainControl(method="cv", number = 5)
+# train the model
+model <- train(classe ~ ., data = training, method="rf",
+                trControl = control, importance = TRUE, proximity = TRUE,
+               allowParallel = TRUE)
+print(model)
+```
+  
+  Number of variables available for splitting at each tree node in the final model is 27. This is also confirmed on the plot below:
+    
+```{r, cache = TRUE}
+library(ROCR)
+plot(model)
+```
+  
+  Further investigation of the model to review the features importance.
+  
+```{r, cache = TRUE}
+varImp <- varImp(model)
+plot(varImp, main = "Importance of Predictors", top = 10)
+```
+  
+  Next step is the model validation against previosly allocated for testing dataset
+
+```{r, cache = TRUE}
+prediction <- predict(model, testing)
+confusionMatrix(prediction, testing$classe)
+```
+  
+  The confusion matrix shows a quite impression accuracy making us to believe that the model would do well on unseen data.
+  
+### Submission
+  
+  As part of this project the created model is used to predict the outcome for 20 cases. The result is stored in 20 files for automatic evaluation.
+  
+```{r, eval = FALSE}
+# predict data for 20 test cases
+test <- predict(model, newdata=test.cases)
+# generate results into separate files
+pm_write_files <- function(x){
+    n  <- length(x)
+    for(i in 1:n){
+        filename <- paste0("problem_id_",i, ".txt")
+        write.table(x[i], file = filename, quote = FALSE, row.names = FALSE, col.names = FALSE)
+    }
+}
+pm_write_files(test)
+```
+
+  
+  
