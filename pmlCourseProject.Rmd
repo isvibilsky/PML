@@ -6,7 +6,7 @@ output: html_document
 ### Background
 
   
-  Wearable devices such as *Jawbone Up, Nike FuelBand, and Fitbit* allow to collect a large amound of data
+  Wearable devices such as *Jawbone Up, Nike FuelBand, and Fitbit* allow to collect a large amount of data
   about personal activity. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks.
    
    In this project, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants and build a prediction model. The participants were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).  
